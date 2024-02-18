@@ -2,13 +2,33 @@ const std = @import("std");
 const Lexer = @import("lexer.zig").Lexer;
 const Token = @import("lexer.zig").Token;
 
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+
+    const args = try std.process.argsAlloc(allocator);
+    defer std.process.argsFree(allocator, args);
+
+    const stdout = std.io.getStdOut().writer();
+
+    if (args.len > 2) {
+        try stdout.print("Usage: ziglox [script]\n", .{});
+        std.process.exit(64);
+    } else if (args.len == 2) {
+        try runFile(args[1]);
+    } else {
+        try repl();
+    }
+}
+
 pub fn repl() !void {
     const stdout = std.io.getStdOut().writer();
     const stdin = std.io.getStdIn().reader();
 
     try stdout.print("The Lox Interpreter REPL\n", .{});
 
-    var buff = std.mem.zeroes([128]u8);
+    var buff: [128:0]u8 = undefined;
+    @memset(&buff, 0);
     var buff_stream = std.io.fixedBufferStream(&buff);
     while (true) {
         buff_stream.reset();
@@ -37,6 +57,7 @@ pub fn run(src: []const u8) !void {
     const stderr = std.io.getStdErr().writer();
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer gpa.deinit();
     const allocator = gpa.allocator();
 
     var lexer = Lexer.init(src);
@@ -52,24 +73,5 @@ pub fn run(src: []const u8) !void {
 
     for (toks.items) |t| {
         std.debug.print("'{s}' {?}\n", .{ lexer.src[t.loc.start..t.loc.end], t.tag });
-    }
-}
-
-pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
-
-    const args = try std.process.argsAlloc(allocator);
-    defer std.process.argsFree(allocator, args);
-
-    const stdout = std.io.getStdOut().writer();
-
-    if (args.len > 2) {
-        try stdout.print("Usage: ziglox [script]\n", .{});
-        std.process.exit(64);
-    } else if (args.len == 2) {
-        try runFile(args[1]);
-    } else {
-        try repl();
     }
 }
