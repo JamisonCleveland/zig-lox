@@ -105,7 +105,7 @@ pub const Lexer = struct {
         return i >= l.src.len or l.src[i] == 0;
     }
 
-    fn chunk(l: *Self, comptime a: []const u8) bool {
+    fn consumeChunk(l: *Self, comptime a: []const u8) bool {
         for (0..a.len) |j| {
             if (l.atEnd(j) or l.src[l.pos + j] != a[j]) {
                 return false;
@@ -115,15 +115,33 @@ pub const Lexer = struct {
         return true;
     }
 
+    fn consume(l: *Lexer, comptime c: u8) bool {
+        if (l.atEnd(l.pos) or l.src[l.pos] != c) return false;
+        l.pos += 1;
+        return true;
+    }
+
+    fn consumeExcept(l: *Lexer, comptime c: u8) bool {
+        if (l.atEnd(l.pos) or l.src[l.pos] == c) return false;
+        l.pos += 1;
+        return true;
+    }
+
+    fn consumeIf(l: *Lexer, comptime f: fn (u8) bool) bool {
+        if (l.atEnd(l.pos) or !f(l.src[l.pos])) return false;
+        l.pos += 1;
+        return true;
+    }
+
     fn whitespace(l: *Lexer) bool {
-        if (l.atEnd(l.pos) or !std.ascii.isWhitespace(l.src[l.pos])) return false;
-        while (!l.atEnd(l.pos) and std.ascii.isWhitespace(l.src[l.pos])) : (l.pos += 1) {}
+        if (!l.consumeIf(std.ascii.isWhitespace)) return false;
+        while (l.consumeIf(std.ascii.isWhitespace)) {}
         return true;
     }
 
     fn lineComment(l: *Lexer) bool {
-        if (!l.chunk("//")) return false;
-        while (!l.atEnd(l.pos) and l.src[l.pos] != '\n') : (l.pos += 1) {}
+        if (!l.consumeChunk("//")) return false;
+        while (l.consumeExcept('\n')) {}
         return true;
     }
 
@@ -134,24 +152,22 @@ pub const Lexer = struct {
     }
 
     fn string(l: *Lexer) !bool {
-        if (l.src[l.pos] != '"') return false;
-        l.pos += 1;
+        if (!l.consume('"')) return false;
 
-        while (!l.atEnd(l.pos) and l.src[l.pos] != '"') : (l.pos += 1) {}
-        if (l.atEnd(l.pos) or l.src[l.pos] != '"') return Error.UnterminatedString;
-        l.pos += 1;
+        while (l.consumeExcept('"')) {}
+        if (!l.consume('"')) return Error.UnterminatedString;
 
         return true;
     }
 
     fn number(l: *Lexer) bool {
-        if (!std.ascii.isDigit(l.src[l.pos])) return false;
+        if (!l.consumeIf(std.ascii.isDigit)) return false;
 
-        while (!l.atEnd(l.pos) and std.ascii.isDigit(l.src[l.pos])) : (l.pos += 1) {}
+        while (l.consumeIf(std.ascii.isDigit)) {}
 
         if (!l.atEnd(l.pos + 1) and l.src[l.pos] == '.' and std.ascii.isDigit(l.src[l.pos + 1])) {
             l.pos += 1;
-            while (!l.atEnd(l.pos) and std.ascii.isDigit(l.src[l.pos])) : (l.pos += 1) {}
+            while (l.consumeIf(std.ascii.isDigit)) {}
         }
 
         return true;
@@ -164,7 +180,7 @@ pub const Lexer = struct {
 
         const start = l.pos;
         var result = Token{
-            .tag = Token.Tag.EOF,
+            .tag = undefined,
             .loc = .{
                 .start = start,
                 .end = undefined,
@@ -222,32 +238,28 @@ pub const Lexer = struct {
                 result.tag = Token.Tag.STAR;
             },
             '!' => {
-                if (l.src[l.pos] == '=') {
-                    l.pos += 1;
+                if (l.consume('=')) {
                     result.tag = Token.Tag.BANG_EQUAL;
                 } else {
                     result.tag = Token.Tag.BANG;
                 }
             },
             '=' => {
-                if (l.src[l.pos] == '=') {
-                    l.pos += 1;
+                if (l.consume('=')) {
                     result.tag = Token.Tag.EQUAL_EQUAL;
                 } else {
                     result.tag = Token.Tag.EQUAL;
                 }
             },
             '>' => {
-                if (l.src[l.pos] == '=') {
-                    l.pos += 1;
+                if (l.consume('=')) {
                     result.tag = Token.Tag.GREATER_EQUAL;
                 } else {
                     result.tag = Token.Tag.GREATER;
                 }
             },
             '<' => {
-                if (l.src[l.pos] == '=') {
-                    l.pos += 1;
+                if (l.consume('=')) {
                     result.tag = Token.Tag.LESS_EQUAL;
                 } else {
                     result.tag = Token.Tag.LESS;
