@@ -127,12 +127,16 @@ pub const Lexer = struct {
         return true;
     }
 
+    fn identifier(l: *Lexer) bool {
+        if (!std.ascii.isAlphabetic(l.src[l.pos]) and l.src[l.pos] != '_') return false;
+        while (!l.atEnd(l.pos) and (std.ascii.isAlphanumeric(l.src[l.pos]) or l.src[l.pos] == '_')) : (l.pos += 1) {}
+        return true;
+    }
+
     pub fn scan(l: *Lexer) Error!?Token {
         while (l.whitespace() and l.lineComment()) {}
 
-        if (l.atEnd(l.pos)) {
-            return null;
-        }
+        if (l.atEnd(l.pos)) return null;
 
         const start = l.pos;
         const c = l.src[l.pos];
@@ -144,8 +148,7 @@ pub const Lexer = struct {
             },
         };
 
-        if (std.ascii.isAlphabetic(c) or c == '_') {
-            while (!l.atEnd(l.pos) and (std.ascii.isAlphanumeric(l.src[l.pos]) or l.src[l.pos] == '_')) : (l.pos += 1) {}
+        if (l.identifier()) {
             result.tag = Token.keywords.get(l.src[start..l.pos]) orelse Token.Tag.IDENTIFIER;
             result.loc.end = l.pos;
             return result;
