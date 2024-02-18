@@ -85,11 +85,16 @@ pub const Lexer = struct {
 
     const Self = @This();
 
+    pub const Error = error{
+        UnexpectedCharacter,
+        UnterminatedString,
+    };
+
     pub fn init(src: []const u8) Self {
         return .{ .i = 0, .src = src };
     }
 
-    pub fn scanAll(l: *Self, a: *std.ArrayList(Token)) !void {
+    pub fn scanAll(l: *Self, a: *std.ArrayList(Token)) (Error || error{OutOfMemory})!void {
         while (try l.scan()) |t| {
             try a.append(t);
         }
@@ -106,7 +111,7 @@ pub const Lexer = struct {
         return true;
     }
 
-    pub fn scan(l: *Lexer) !?Token {
+    pub fn scan(l: *Lexer) Error!?Token {
         while (l.i < l.src.len) {
             if (std.ascii.isWhitespace(l.src[l.i])) {
                 while (l.i < l.src.len and std.ascii.isWhitespace(l.src[l.i])) : (l.i += 1) {}
@@ -140,7 +145,7 @@ pub const Lexer = struct {
             l.i += 1;
             while (l.i < l.src.len and l.src[l.i] != '"') : (l.i += 1) {}
             if (l.i >= l.src.len or l.src[l.i] != '"') {
-                return error.UnterminatedString;
+                return Error.UnterminatedString;
             }
             l.i += 1;
             result.tag = Token.Tag.STRING;
@@ -228,7 +233,7 @@ pub const Lexer = struct {
                 }
             },
             else => {
-                return error.UnexpectedCharacter;
+                return Error.UnexpectedCharacter;
             },
         }
         result.loc.end = l.i;
