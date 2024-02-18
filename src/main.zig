@@ -38,11 +38,11 @@ pub fn repl() !void {
         try stdin.streamUntilDelimiter(buff_stream.writer(), '\n', null);
         if (buff_stream.pos == 1) break;
 
-        try run(buff_stream.getWritten());
+        try run(&buff);
     }
 }
 
-pub fn runFile(path: [:0]u8) !void {
+pub fn runFile(path: [:0]const u8) !void {
     var file = try std.fs.cwd().openFileZ(path, .{});
     defer file.close();
 
@@ -50,14 +50,14 @@ pub fn runFile(path: [:0]u8) !void {
     @memset(&src_buff, 0);
     _ = try file.readAll(&src_buff);
 
-    try run(std.mem.span(@as([*:0]const u8, &src_buff))); // thats a lot ...
+    try run(&src_buff); // thats a lot ...
 }
 
-pub fn run(src: []const u8) !void {
+pub fn run(src: [:0]const u8) !void {
     const stderr = std.io.getStdErr().writer();
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer gpa.deinit();
+    defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
     var lexer = Lexer.init(src);

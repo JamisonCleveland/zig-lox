@@ -81,7 +81,7 @@ pub const Token = struct {
 
 pub const Lexer = struct {
     i: usize,
-    src: []const u8,
+    src: [:0]const u8,
 
     const Self = @This();
 
@@ -90,7 +90,7 @@ pub const Lexer = struct {
         UnterminatedString,
     };
 
-    pub fn init(src: []const u8) Self {
+    pub fn init(src: [:0]const u8) Self {
         return .{ .i = 0, .src = src };
     }
 
