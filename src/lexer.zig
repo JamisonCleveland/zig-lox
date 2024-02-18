@@ -133,6 +133,17 @@ pub const Lexer = struct {
         return true;
     }
 
+    fn string(l: *Lexer) !bool {
+        if (l.src[l.pos] != '"') return false;
+        l.pos += 1;
+
+        while (!l.atEnd(l.pos) and l.src[l.pos] != '"') : (l.pos += 1) {}
+        if (l.atEnd(l.pos) or l.src[l.pos] != '"') return Error.UnterminatedString;
+        l.pos += 1;
+
+        return true;
+    }
+
     pub fn scan(l: *Lexer) Error!?Token {
         while (l.whitespace() and l.lineComment()) {}
 
@@ -152,13 +163,7 @@ pub const Lexer = struct {
             result.tag = Token.keywords.get(l.src[start..l.pos]) orelse Token.Tag.IDENTIFIER;
             result.loc.end = l.pos;
             return result;
-        } else if (c == '"') {
-            l.pos += 1;
-            while (!l.atEnd(l.pos) and l.src[l.pos] != '"') : (l.pos += 1) {}
-            if (l.atEnd(l.pos) or l.src[l.pos] != '"') {
-                return Error.UnterminatedString;
-            }
-            l.pos += 1;
+        } else if (try l.string()) {
             result.tag = Token.Tag.STRING;
             result.loc.end = l.pos;
             return result;
