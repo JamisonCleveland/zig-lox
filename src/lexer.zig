@@ -101,78 +101,6 @@ pub const Lexer = struct {
         try a.append(.{ .tag = Token.Tag.EOF, .loc = .{ .start = l.pos, .end = l.pos } });
     }
 
-    fn atEnd(l: *Self, i: usize) bool {
-        return i >= l.src.len or l.src[i] == 0;
-    }
-
-    fn consumeChunk(l: *Self, comptime a: []const u8) bool {
-        for (0..a.len) |j| {
-            if (l.atEnd(j) or l.src[l.pos + j] != a[j]) {
-                return false;
-            }
-        }
-        l.pos += a.len;
-        return true;
-    }
-
-    fn consume(l: *Lexer, comptime c: u8) bool {
-        if (l.atEnd(l.pos) or l.src[l.pos] != c) return false;
-        l.pos += 1;
-        return true;
-    }
-
-    fn consumeExcept(l: *Lexer, comptime c: u8) bool {
-        if (l.atEnd(l.pos) or l.src[l.pos] == c) return false;
-        l.pos += 1;
-        return true;
-    }
-
-    fn consumeIf(l: *Lexer, comptime f: fn (u8) bool) bool {
-        if (l.atEnd(l.pos) or !f(l.src[l.pos])) return false;
-        l.pos += 1;
-        return true;
-    }
-
-    fn whitespace(l: *Lexer) bool {
-        if (!l.consumeIf(std.ascii.isWhitespace)) return false;
-        while (l.consumeIf(std.ascii.isWhitespace)) {}
-        return true;
-    }
-
-    fn lineComment(l: *Lexer) bool {
-        if (!l.consumeChunk("//")) return false;
-        while (l.consumeExcept('\n')) {}
-        return true;
-    }
-
-    fn identifier(l: *Lexer) bool {
-        if (!std.ascii.isAlphabetic(l.src[l.pos]) and l.src[l.pos] != '_') return false;
-        while (!l.atEnd(l.pos) and (std.ascii.isAlphanumeric(l.src[l.pos]) or l.src[l.pos] == '_')) : (l.pos += 1) {}
-        return true;
-    }
-
-    fn string(l: *Lexer) !bool {
-        if (!l.consume('"')) return false;
-
-        while (l.consumeExcept('"')) {}
-        if (!l.consume('"')) return Error.UnterminatedString;
-
-        return true;
-    }
-
-    fn number(l: *Lexer) bool {
-        if (!l.consumeIf(std.ascii.isDigit)) return false;
-
-        while (l.consumeIf(std.ascii.isDigit)) {}
-
-        if (!l.atEnd(l.pos + 1) and l.src[l.pos] == '.' and std.ascii.isDigit(l.src[l.pos + 1])) {
-            l.pos += 1;
-            while (l.consumeIf(std.ascii.isDigit)) {}
-        }
-
-        return true;
-    }
-
     pub fn scan(l: *Lexer) Error!?Token {
         while (l.whitespace() and l.lineComment()) {}
 
@@ -271,5 +199,81 @@ pub const Lexer = struct {
         }
         result.loc.end = l.pos;
         return result;
+    }
+
+    // lexemes
+
+    fn whitespace(l: *Lexer) bool {
+        if (!l.consumeIf(std.ascii.isWhitespace)) return false;
+        while (l.consumeIf(std.ascii.isWhitespace)) {}
+        return true;
+    }
+
+    fn lineComment(l: *Lexer) bool {
+        if (!l.consumeChunk("//")) return false;
+        while (l.consumeExcept('\n')) {}
+        return true;
+    }
+
+    fn identifier(l: *Lexer) bool {
+        if (!std.ascii.isAlphabetic(l.src[l.pos]) and l.src[l.pos] != '_') return false;
+        while (!l.atEnd(l.pos) and (std.ascii.isAlphanumeric(l.src[l.pos]) or l.src[l.pos] == '_')) : (l.pos += 1) {}
+        return true;
+    }
+
+    fn string(l: *Lexer) !bool {
+        if (!l.consume('"')) return false;
+
+        while (l.consumeExcept('"')) {}
+        if (!l.consume('"')) return Error.UnterminatedString;
+
+        return true;
+    }
+
+    fn number(l: *Lexer) bool {
+        if (!l.consumeIf(std.ascii.isDigit)) return false;
+
+        while (l.consumeIf(std.ascii.isDigit)) {}
+
+        if (!l.atEnd(l.pos + 1) and l.src[l.pos] == '.' and std.ascii.isDigit(l.src[l.pos + 1])) {
+            l.pos += 1;
+            while (l.consumeIf(std.ascii.isDigit)) {}
+        }
+
+        return true;
+    }
+
+    // Helpers
+
+    fn atEnd(l: *Self, i: usize) bool {
+        return i >= l.src.len or l.src[i] == 0;
+    }
+
+    fn consume(l: *Lexer, comptime c: u8) bool {
+        if (l.atEnd(l.pos) or l.src[l.pos] != c) return false;
+        l.pos += 1;
+        return true;
+    }
+
+    fn consumeChunk(l: *Self, comptime a: []const u8) bool {
+        for (0..a.len) |j| {
+            if (l.atEnd(j) or l.src[l.pos + j] != a[j]) {
+                return false;
+            }
+        }
+        l.pos += a.len;
+        return true;
+    }
+
+    fn consumeExcept(l: *Lexer, comptime c: u8) bool {
+        if (l.atEnd(l.pos) or l.src[l.pos] == c) return false;
+        l.pos += 1;
+        return true;
+    }
+
+    fn consumeIf(l: *Lexer, comptime f: fn (u8) bool) bool {
+        if (l.atEnd(l.pos) or !f(l.src[l.pos])) return false;
+        l.pos += 1;
+        return true;
     }
 };
