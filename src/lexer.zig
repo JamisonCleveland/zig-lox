@@ -80,7 +80,7 @@ pub const Token = struct {
 };
 
 pub const Lexer = struct {
-    i: usize,
+    pos: usize,
     src: [:0]const u8,
 
     const Self = @This();
@@ -91,14 +91,14 @@ pub const Lexer = struct {
     };
 
     pub fn init(src: [:0]const u8) Self {
-        return .{ .i = 0, .src = src };
+        return .{ .pos = 0, .src = src };
     }
 
     pub fn scanAll(l: *Self, a: *std.ArrayList(Token)) (Error || error{OutOfMemory})!void {
         while (try l.scan()) |t| {
             try a.append(t);
         }
-        try a.append(.{ .tag = Token.Tag.EOF, .loc = .{ .start = l.i, .end = l.i } });
+        try a.append(.{ .tag = Token.Tag.EOF, .loc = .{ .start = l.pos, .end = l.pos } });
     }
 
     fn atEnd(l: *Self, i: usize) bool {
@@ -107,31 +107,35 @@ pub const Lexer = struct {
 
     fn chunk(l: *Self, comptime a: []const u8) bool {
         for (0..a.len) |j| {
-            if (l.atEnd(j) or l.src[l.i + j] != a[j]) {
+            if (l.atEnd(j) or l.src[l.pos + j] != a[j]) {
                 return false;
             }
         }
-        l.i += a.len;
+        l.pos += a.len;
+        return true;
+    }
+
+    fn whitespace(l: *Lexer) bool {
+        if (l.atEnd(l.pos) or !std.ascii.isWhitespace(l.src[l.pos])) return false;
+        while (!l.atEnd(l.pos) and std.ascii.isWhitespace(l.src[l.pos])) : (l.pos += 1) {}
+        return true;
+    }
+
+    fn lineComment(l: *Lexer) bool {
+        if (!l.chunk("//")) return false;
+        while (!l.atEnd(l.pos) and l.src[l.pos] != '\n') : (l.pos += 1) {}
         return true;
     }
 
     pub fn scan(l: *Lexer) Error!?Token {
-        while (!l.atEnd(l.i)) {
-            if (std.ascii.isWhitespace(l.src[l.i])) {
-                while (!l.atEnd(l.i) and std.ascii.isWhitespace(l.src[l.i])) : (l.i += 1) {}
-            } else if (l.chunk("//")) {
-                while (!l.atEnd(l.i) and l.src[l.i] != '\n') : (l.i += 1) {}
-            } else {
-                break;
-            }
-        }
+        while (l.whitespace() and l.lineComment()) {}
 
-        if (l.atEnd(l.i)) {
+        if (l.atEnd(l.pos)) {
             return null;
         }
 
-        const start = l.i;
-        const c = l.src[l.i];
+        const start = l.pos;
+        const c = l.src[l.pos];
         var result = Token{
             .tag = Token.Tag.EOF,
             .loc = .{
@@ -141,35 +145,35 @@ pub const Lexer = struct {
         };
 
         if (std.ascii.isAlphabetic(c) or c == '_') {
-            while (!l.atEnd(l.i) and (std.ascii.isAlphanumeric(l.src[l.i]) or l.src[l.i] == '_')) : (l.i += 1) {}
-            result.tag = Token.keywords.get(l.src[start..l.i]) orelse Token.Tag.IDENTIFIER;
-            result.loc.end = l.i;
+            while (!l.atEnd(l.pos) and (std.ascii.isAlphanumeric(l.src[l.pos]) or l.src[l.pos] == '_')) : (l.pos += 1) {}
+            result.tag = Token.keywords.get(l.src[start..l.pos]) orelse Token.Tag.IDENTIFIER;
+            result.loc.end = l.pos;
             return result;
         } else if (c == '"') {
-            l.i += 1;
-            while (!l.atEnd(l.i) and l.src[l.i] != '"') : (l.i += 1) {}
-            if (l.atEnd(l.i) or l.src[l.i] != '"') {
+            l.pos += 1;
+            while (!l.atEnd(l.pos) and l.src[l.pos] != '"') : (l.pos += 1) {}
+            if (l.atEnd(l.pos) or l.src[l.pos] != '"') {
                 return Error.UnterminatedString;
             }
-            l.i += 1;
+            l.pos += 1;
             result.tag = Token.Tag.STRING;
-            result.loc.end = l.i;
+            result.loc.end = l.pos;
             return result;
         } else if (std.ascii.isDigit(c)) {
-            while (!l.atEnd(l.i) and std.ascii.isDigit(l.src[l.i])) : (l.i += 1) {}
+            while (!l.atEnd(l.pos) and std.ascii.isDigit(l.src[l.pos])) : (l.pos += 1) {}
 
-            if (!l.atEnd(l.i + 1) and l.src[l.i] == '.' and std.ascii.isDigit(l.src[l.i + 1])) {
-                l.i += 1;
+            if (!l.atEnd(l.pos + 1) and l.src[l.pos] == '.' and std.ascii.isDigit(l.src[l.pos + 1])) {
+                l.pos += 1;
 
-                while (!l.atEnd(l.i) and std.ascii.isDigit(l.src[l.i])) : (l.i += 1) {}
+                while (!l.atEnd(l.pos) and std.ascii.isDigit(l.src[l.pos])) : (l.pos += 1) {}
             }
 
             result.tag = Token.Tag.NUMBER;
-            result.loc.end = l.i;
+            result.loc.end = l.pos;
             return result;
         }
 
-        l.i += 1;
+        l.pos += 1;
         switch (c) {
             '(' => {
                 result.tag = Token.Tag.LEFT_PAREN;
@@ -205,32 +209,32 @@ pub const Lexer = struct {
                 result.tag = Token.Tag.STAR;
             },
             '!' => {
-                if (l.src[l.i] == '=') {
-                    l.i += 1;
+                if (l.src[l.pos] == '=') {
+                    l.pos += 1;
                     result.tag = Token.Tag.BANG_EQUAL;
                 } else {
                     result.tag = Token.Tag.BANG;
                 }
             },
             '=' => {
-                if (l.src[l.i] == '=') {
-                    l.i += 1;
+                if (l.src[l.pos] == '=') {
+                    l.pos += 1;
                     result.tag = Token.Tag.EQUAL_EQUAL;
                 } else {
                     result.tag = Token.Tag.EQUAL;
                 }
             },
             '>' => {
-                if (l.src[l.i] == '=') {
-                    l.i += 1;
+                if (l.src[l.pos] == '=') {
+                    l.pos += 1;
                     result.tag = Token.Tag.GREATER_EQUAL;
                 } else {
                     result.tag = Token.Tag.GREATER;
                 }
             },
             '<' => {
-                if (l.src[l.i] == '=') {
-                    l.i += 1;
+                if (l.src[l.pos] == '=') {
+                    l.pos += 1;
                     result.tag = Token.Tag.LESS_EQUAL;
                 } else {
                     result.tag = Token.Tag.LESS;
@@ -240,7 +244,7 @@ pub const Lexer = struct {
                 return Error.UnexpectedCharacter;
             },
         }
-        result.loc.end = l.i;
+        result.loc.end = l.pos;
         return result;
     }
 };
