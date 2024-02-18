@@ -38,5 +38,18 @@ pub fn repl() !void {
 }
 
 pub fn main() !void {
-    try repl();
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+
+    const args = try std.process.argsAlloc(allocator);
+    defer std.process.argsFree(allocator, args);
+
+    const stdout = std.io.getStdOut().writer();
+
+    if (args.len > 1) {
+        try stdout.print("Usage: ziglox [script]");
+        std.process.exit(64);
+    } else if (args.len == 1) {} else {
+        try repl();
+    }
 }
