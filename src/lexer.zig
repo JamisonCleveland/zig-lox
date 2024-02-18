@@ -144,13 +144,25 @@ pub const Lexer = struct {
         return true;
     }
 
+    fn number(l: *Lexer) bool {
+        if (!std.ascii.isDigit(l.src[l.pos])) return false;
+
+        while (!l.atEnd(l.pos) and std.ascii.isDigit(l.src[l.pos])) : (l.pos += 1) {}
+
+        if (!l.atEnd(l.pos + 1) and l.src[l.pos] == '.' and std.ascii.isDigit(l.src[l.pos + 1])) {
+            l.pos += 1;
+            while (!l.atEnd(l.pos) and std.ascii.isDigit(l.src[l.pos])) : (l.pos += 1) {}
+        }
+
+        return true;
+    }
+
     pub fn scan(l: *Lexer) Error!?Token {
         while (l.whitespace() and l.lineComment()) {}
 
         if (l.atEnd(l.pos)) return null;
 
         const start = l.pos;
-        const c = l.src[l.pos];
         var result = Token{
             .tag = Token.Tag.EOF,
             .loc = .{
@@ -167,20 +179,13 @@ pub const Lexer = struct {
             result.tag = Token.Tag.STRING;
             result.loc.end = l.pos;
             return result;
-        } else if (std.ascii.isDigit(c)) {
-            while (!l.atEnd(l.pos) and std.ascii.isDigit(l.src[l.pos])) : (l.pos += 1) {}
-
-            if (!l.atEnd(l.pos + 1) and l.src[l.pos] == '.' and std.ascii.isDigit(l.src[l.pos + 1])) {
-                l.pos += 1;
-
-                while (!l.atEnd(l.pos) and std.ascii.isDigit(l.src[l.pos])) : (l.pos += 1) {}
-            }
-
+        } else if (l.number()) {
             result.tag = Token.Tag.NUMBER;
             result.loc.end = l.pos;
             return result;
         }
 
+        const c = l.src[l.pos];
         l.pos += 1;
         switch (c) {
             '(' => {
