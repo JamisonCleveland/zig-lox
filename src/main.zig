@@ -5,8 +5,6 @@ const Token = @import("lexer.zig").Token;
 pub fn repl() !void {
     const stdout = std.io.getStdOut().writer();
     const stdin = std.io.getStdIn().reader();
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const alloc = gpa.allocator();
 
     try stdout.print("The Lox Interpreter REPL\n", .{});
 
@@ -20,20 +18,39 @@ pub fn repl() !void {
         try stdin.streamUntilDelimiter(buff_stream.writer(), '\n', null);
         if (buff_stream.pos == 1) break;
 
-        var lexer = Lexer.init(buff_stream.getWritten());
+        try run(buff_stream.getWritten());
+    }
+}
 
-        var toks = std.ArrayList(Token).init(alloc);
-        defer toks.deinit();
+pub fn runFile(path: [:0]u8) !void {
+    var file = try std.fs.cwd().openFileZ(path, .{});
+    defer file.close();
 
-        lexer.scanAll(&toks) catch |err| switch (err) {
-            error.UnterminatedString => try stdout.print("ERROR: Unterminated string literal\n", .{}),
-            error.UnexpectedCharacter => try stdout.print("ERROR: Unexpected character\n", .{}),
-            else => return err,
-        };
+    var src_buff = std.mem.zeroes([4096]u8);
+    _ = try file.readAll(&src_buff);
 
-        for (toks.items) |t| {
-            std.debug.print("'{s}' {?}\n", .{ lexer.src[t.loc.start..t.loc.end], t.tag });
-        }
+    try run(&src_buff);
+}
+
+pub fn run(src: []const u8) !void {
+    const stderr = std.io.getStdErr().writer();
+
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+
+    var lexer = Lexer.init(src);
+
+    var toks = std.ArrayList(Token).init(allocator);
+    defer toks.deinit();
+
+    lexer.scanAll(&toks) catch |err| switch (err) {
+        error.UnterminatedString => try stderr.print("ERROR: Unterminated string literal\n", .{}),
+        error.UnexpectedCharacter => try stderr.print("ERROR: Unexpected character\n", .{}),
+        else => return err,
+    };
+
+    for (toks.items) |t| {
+        std.debug.print("'{s}' {?}\n", .{ lexer.src[t.loc.start..t.loc.end], t.tag });
     }
 }
 
@@ -46,10 +63,12 @@ pub fn main() !void {
 
     const stdout = std.io.getStdOut().writer();
 
-    if (args.len > 1) {
-        try stdout.print("Usage: ziglox [script]");
+    if (args.len > 2) {
+        try stdout.print("Usage: ziglox [script]\n", .{});
         std.process.exit(64);
-    } else if (args.len == 1) {} else {
+    } else if (args.len == 2) {
+        try runFile(args[1]);
+    } else {
         try repl();
     }
 }
