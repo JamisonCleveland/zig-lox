@@ -26,10 +26,11 @@ pub fn runFile(path: [:0]u8) !void {
     var file = try std.fs.cwd().openFileZ(path, .{});
     defer file.close();
 
-    var src_buff = std.mem.zeroes([4096]u8);
+    var src_buff: [4096:0]u8 = undefined;
+    @memset(&src_buff, 0);
     _ = try file.readAll(&src_buff);
 
-    try run(&src_buff);
+    try run(std.mem.span(@as([*:0]const u8, &src_buff))); // thats a lot ...
 }
 
 pub fn run(src: []const u8) !void {
