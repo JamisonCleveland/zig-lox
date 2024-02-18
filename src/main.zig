@@ -50,7 +50,7 @@ pub fn runFile(path: [:0]const u8) !void {
     @memset(&src_buff, 0);
     _ = try file.readAll(&src_buff);
 
-    try run(&src_buff); // thats a lot ...
+    try run(&src_buff);
 }
 
 pub fn run(src: [:0]const u8) !void {
