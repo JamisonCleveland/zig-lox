@@ -101,9 +101,13 @@ pub const Lexer = struct {
         try a.append(.{ .tag = Token.Tag.EOF, .loc = .{ .start = l.i, .end = l.i } });
     }
 
+    fn atEnd(l: *Self, i: usize) bool {
+        return i >= l.src.len or l.src[i] == 0;
+    }
+
     fn chunk(l: *Self, comptime a: []const u8) bool {
         for (0..a.len) |j| {
-            if ((l.i + j) >= l.src.len or l.src[l.i + j] != a[j]) {
+            if (l.atEnd(j) or l.src[l.i + j] != a[j]) {
                 return false;
             }
         }
@@ -112,17 +116,17 @@ pub const Lexer = struct {
     }
 
     pub fn scan(l: *Lexer) Error!?Token {
-        while (l.i < l.src.len) {
+        while (!l.atEnd(l.i)) {
             if (std.ascii.isWhitespace(l.src[l.i])) {
-                while (l.i < l.src.len and std.ascii.isWhitespace(l.src[l.i])) : (l.i += 1) {}
+                while (!l.atEnd(l.i) and std.ascii.isWhitespace(l.src[l.i])) : (l.i += 1) {}
             } else if (l.chunk("//")) {
-                while (l.i < l.src.len and l.src[l.i] != '\n') : (l.i += 1) {}
+                while (!l.atEnd(l.i) and l.src[l.i] != '\n') : (l.i += 1) {}
             } else {
                 break;
             }
         }
 
-        if (l.i >= l.src.len) {
+        if (l.atEnd(l.i)) {
             return null;
         }
 
@@ -137,14 +141,14 @@ pub const Lexer = struct {
         };
 
         if (std.ascii.isAlphabetic(c) or c == '_') {
-            while (l.i < l.src.len and (std.ascii.isAlphanumeric(l.src[l.i]) or l.src[l.i] == '_')) : (l.i += 1) {}
+            while (!l.atEnd(l.i) and (std.ascii.isAlphanumeric(l.src[l.i]) or l.src[l.i] == '_')) : (l.i += 1) {}
             result.tag = Token.keywords.get(l.src[start..l.i]) orelse Token.Tag.IDENTIFIER;
             result.loc.end = l.i;
             return result;
         } else if (c == '"') {
             l.i += 1;
-            while (l.i < l.src.len and l.src[l.i] != '"') : (l.i += 1) {}
-            if (l.i >= l.src.len or l.src[l.i] != '"') {
+            while (!l.atEnd(l.i) and l.src[l.i] != '"') : (l.i += 1) {}
+            if (l.atEnd(l.i) or l.src[l.i] != '"') {
                 return Error.UnterminatedString;
             }
             l.i += 1;
@@ -152,12 +156,12 @@ pub const Lexer = struct {
             result.loc.end = l.i;
             return result;
         } else if (std.ascii.isDigit(c)) {
-            while (l.i < l.src.len and std.ascii.isDigit(l.src[l.i])) : (l.i += 1) {}
+            while (!l.atEnd(l.i) and std.ascii.isDigit(l.src[l.i])) : (l.i += 1) {}
 
-            if (l.i + 1 < l.src.len and l.src[l.i] == '.' and std.ascii.isDigit(l.src[l.i + 1])) {
+            if (!l.atEnd(l.i + 1) and l.src[l.i] == '.' and std.ascii.isDigit(l.src[l.i + 1])) {
                 l.i += 1;
 
-                while (l.i < l.src.len and std.ascii.isDigit(l.src[l.i])) : (l.i += 1) {}
+                while (!l.atEnd(l.i) and std.ascii.isDigit(l.src[l.i])) : (l.i += 1) {}
             }
 
             result.tag = Token.Tag.NUMBER;
