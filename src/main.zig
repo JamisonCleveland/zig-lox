@@ -66,8 +66,12 @@ pub fn run(src: [:0]const u8) !void {
     defer toks.deinit();
 
     lexer.scanAll(&toks) catch |err| switch (err) {
-        error.UnterminatedString => try stderr.print("ERROR: Unterminated string literal\n", .{}),
-        error.UnexpectedCharacter => try stderr.print("ERROR: Unexpected character\n", .{}),
+        error.UnterminatedString => {
+            try stderr.print("[line {d}] Error: Unterminated string literal\n", .{lexer.line + 1});
+        },
+        error.UnexpectedCharacter => {
+            try stderr.print("[line {d}] Error: Unexpected character\n", .{lexer.line + 1});
+        },
         else => return err,
     };
 
