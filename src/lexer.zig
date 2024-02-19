@@ -80,6 +80,10 @@ pub const Token = struct {
     };
 };
 
+// TODO:
+// * Track line offsets for each token.
+// * Better error messages for lexing.
+// * have a standard format for lexing w/out the current helper functions.
 pub const Lexer = struct {
     pos: usize,
     line: usize,
