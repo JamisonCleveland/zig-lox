@@ -7,6 +7,7 @@ pub const Token = struct {
     pub const Loc = struct {
         start: usize,
         end: usize,
+        line: usize,
     };
 
     const keywords = std.ComptimeStringMap(Token.Tag, .{
@@ -81,6 +82,7 @@ pub const Token = struct {
 
 pub const Lexer = struct {
     pos: usize,
+    line: usize,
     src: [:0]const u8,
 
     const Self = @This();
@@ -91,14 +93,14 @@ pub const Lexer = struct {
     };
 
     pub fn init(src: [:0]const u8) Self {
-        return .{ .pos = 0, .src = src };
+        return .{ .pos = 0, .line = 0, .src = src };
     }
 
     pub fn scanAll(l: *Self, a: *std.ArrayList(Token)) (Error || error{OutOfMemory})!void {
         while (try l.scan()) |t| {
             try a.append(t);
         }
-        try a.append(.{ .tag = Token.Tag.EOF, .loc = .{ .start = l.pos, .end = l.pos } });
+        try a.append(.{ .tag = Token.Tag.EOF, .loc = .{ .start = l.pos, .end = l.pos, .line = l.line } });
     }
 
     pub fn scan(l: *Lexer) Error!?Token {
@@ -112,20 +114,24 @@ pub const Lexer = struct {
             .loc = .{
                 .start = start,
                 .end = undefined,
+                .line = undefined,
             },
         };
 
         if (l.identifier()) {
             result.tag = Token.keywords.get(l.src[start..l.pos]) orelse Token.Tag.IDENTIFIER;
             result.loc.end = l.pos;
+            result.loc.line = l.line;
             return result;
         } else if (try l.string()) {
             result.tag = Token.Tag.STRING;
             result.loc.end = l.pos;
+            result.loc.line = l.line;
             return result;
         } else if (l.number()) {
             result.tag = Token.Tag.NUMBER;
             result.loc.end = l.pos;
+            result.loc.line = l.line;
             return result;
         }
 
@@ -198,20 +204,25 @@ pub const Lexer = struct {
             },
         }
         result.loc.end = l.pos;
+        result.loc.line = l.line;
         return result;
     }
 
     // lexemes
 
     fn whitespace(l: *Lexer) bool {
-        if (!l.consumeIf(std.ascii.isWhitespace)) return false;
-        while (l.consumeIf(std.ascii.isWhitespace)) {}
+        if (l.atEnd(l.pos) or !std.ascii.isWhitespace(l.src[l.pos])) return false;
+        while (!l.atEnd(l.pos) and std.ascii.isWhitespace(l.src[l.pos])) : (l.pos += 1) {
+            if (l.src[l.pos] == '\n') l.line += 1;
+        }
         return true;
     }
 
     fn lineComment(l: *Lexer) bool {
         if (!l.consumeChunk("//")) return false;
         while (l.consumeExcept('\n')) {}
+        l.line += 1;
+        l.pos += 1;
         return true;
     }
 
@@ -224,7 +235,9 @@ pub const Lexer = struct {
     fn string(l: *Lexer) !bool {
         if (!l.consume('"')) return false;
 
-        while (l.consumeExcept('"')) {}
+        while (!l.atEnd(l.pos) and l.src[l.pos] != '"') : (l.pos += 1) {
+            if (l.src[l.pos] == '\n') l.line += 1;
+        }
         if (!l.consume('"')) return Error.UnterminatedString;
 
         return true;

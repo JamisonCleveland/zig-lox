@@ -72,6 +72,6 @@ pub fn run(src: [:0]const u8) !void {
     };
 
     for (toks.items) |t| {
-        std.debug.print("'{s}' {?}\n", .{ lexer.src[t.loc.start..t.loc.end], t.tag });
+        std.debug.print("'{s}', line: {d}, tag: {?}\n", .{ lexer.src[t.loc.start..t.loc.end], t.loc.line, t.tag });
     }
 }
