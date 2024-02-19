@@ -1,6 +1,5 @@
 const std = @import("std");
-const Lexer = @import("lexer.zig").Lexer;
-const Token = @import("lexer.zig").Token;
+const lex = @import("lexer.zig");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -56,9 +55,9 @@ pub fn runFile(allocator: std.mem.Allocator, path: [:0]const u8) !void {
 pub fn run(allocator: std.mem.Allocator, src: [:0]const u8) !void {
     const stderr = std.io.getStdErr().writer();
 
-    var lexer = Lexer.init(src);
+    var lexer = lex.Lexer.init(src);
 
-    var toks = std.ArrayList(Token).init(allocator);
+    var toks = std.ArrayList(lex.Token).init(allocator);
     defer toks.deinit();
 
     lexer.scanAll(&toks) catch |err| switch (err) {
