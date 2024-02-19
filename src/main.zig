@@ -4,6 +4,7 @@ const Token = @import("lexer.zig").Token;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
     const args = try std.process.argsAlloc(allocator);
@@ -15,50 +16,45 @@ pub fn main() !void {
         try stdout.print("Usage: ziglox [script]\n", .{});
         std.process.exit(64);
     } else if (args.len == 2) {
-        try runFile(args[1]);
+        try runFile(allocator, args[1]);
     } else {
-        try repl();
+        try repl(allocator);
     }
 }
 
-pub fn repl() !void {
+pub fn repl(allocator: std.mem.Allocator) !void {
     const stdout = std.io.getStdOut().writer();
     const stdin = std.io.getStdIn().reader();
 
     try stdout.print("The Lox Interpreter REPL\n", .{});
 
-    var buff: [128:0]u8 = undefined;
-    @memset(&buff, 0);
-    var buff_stream = std.io.fixedBufferStream(&buff);
     while (true) {
-        buff_stream.reset();
-        @memset(buff_stream.buffer, 0);
-
         _ = try stdout.write("> ");
-        try stdin.streamUntilDelimiter(buff_stream.writer(), '\n', null);
-        if (buff_stream.pos == 1) break;
 
-        try run(&buff);
+        var array_list = std.ArrayList(u8).init(allocator);
+        defer array_list.deinit();
+        try stdin.streamUntilDelimiter(array_list.writer(), '\n', 256);
+        const buff = try array_list.toOwnedSliceSentinel(0);
+        defer allocator.free(buff);
+
+        if (buff.len == 1) break;
+
+        try run(allocator, buff);
     }
 }
 
-pub fn runFile(path: [:0]const u8) !void {
+pub fn runFile(allocator: std.mem.Allocator, path: [:0]const u8) !void {
     var file = try std.fs.cwd().openFileZ(path, .{});
     defer file.close();
 
-    var src_buff: [4096:0]u8 = undefined;
-    @memset(&src_buff, 0);
-    _ = try file.readAll(&src_buff);
+    const src_buff = try file.readToEndAllocOptions(allocator, 4096, null, @alignOf(u8), 0);
+    defer allocator.free(src_buff);
 
-    try run(&src_buff);
+    try run(allocator, src_buff);
 }
 
-pub fn run(src: [:0]const u8) !void {
+pub fn run(allocator: std.mem.Allocator, src: [:0]const u8) !void {
     const stderr = std.io.getStdErr().writer();
-
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
 
     var lexer = Lexer.init(src);
 
