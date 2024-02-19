@@ -200,6 +200,7 @@ pub const Lexer = struct {
                 }
             },
             else => {
+                l.pos -= 1; // kinda hacky
                 return Error.UnexpectedCharacter;
             },
         }
