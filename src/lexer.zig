@@ -3,6 +3,7 @@ const std = @import("std");
 pub const Token = struct {
     tag: Tag,
     loc: Loc,
+    lexeme: []const u8,
 
     pub const Loc = struct {
         start: usize,
@@ -104,7 +105,11 @@ pub const Lexer = struct {
         while (try l.scan()) |t| {
             try a.append(t);
         }
-        try a.append(.{ .tag = Token.Tag.EOF, .loc = .{ .start = l.pos, .end = l.pos, .line = l.line } });
+        try a.append(Token{
+            .tag = Token.Tag.EOF,
+            .loc = .{ .start = l.pos, .end = l.pos, .line = l.line },
+            .lexeme = &[0]u8{}, // a little hacky. Is there a better way?
+        });
     }
 
     pub fn scan(l: *Lexer) Error!?Token {
@@ -120,22 +125,26 @@ pub const Lexer = struct {
                 .end = undefined,
                 .line = undefined,
             },
+            .lexeme = undefined,
         };
 
         if (l.identifier()) {
             result.tag = Token.keywords.get(l.src[start..l.pos]) orelse Token.Tag.IDENTIFIER;
             result.loc.end = l.pos;
             result.loc.line = l.line;
+            result.lexeme = l.src[start..l.pos];
             return result;
         } else if (try l.string()) {
             result.tag = Token.Tag.STRING;
             result.loc.end = l.pos;
             result.loc.line = l.line;
+            result.lexeme = l.src[start..l.pos];
             return result;
         } else if (l.number()) {
             result.tag = Token.Tag.NUMBER;
             result.loc.end = l.pos;
             result.loc.line = l.line;
+            result.lexeme = l.src[start..l.pos];
             return result;
         }
 
@@ -210,6 +219,7 @@ pub const Lexer = struct {
         }
         result.loc.end = l.pos;
         result.loc.line = l.line;
+        result.lexeme = l.src[start..l.pos];
         return result;
     }
 
