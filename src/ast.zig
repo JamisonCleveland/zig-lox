@@ -59,6 +59,28 @@ const Parser = struct {
     const Self = @This();
     tokens: []Token,
     pos: usize,
+    allocator: std.mem.Allocator,
+
+    fn parseUnary(p: *Self) !*Expr {
+        const t = p.tokens[p.pos];
+        switch (t.tag) {
+            .BANG, .MINUS => {
+                p.pos += 1;
+                var u = try p.parseUnary();
+
+                var res = try p.allocator.create(Expr);
+                res.* = .{ .unary = .{ .operator = t, .right = u } };
+                return res;
+            },
+            else => {
+                const v = try p.parseLoxValue();
+
+                var res = try p.allocator.create(Expr);
+                res.* = .{ .literal = v };
+                return res;
+            },
+        }
+    }
 
     fn parseLoxValue(p: *Self) !LoxValue {
         const t = p.tokens[p.pos];
@@ -86,22 +108,16 @@ const Parser = struct {
 };
 
 test "asdf" {
-    var toks = [4]Token{
-        .{ .tag = Token.Tag.NUMBER, .lexeme = "123", .loc = undefined },
-        .{ .tag = Token.Tag.STRING, .lexeme = "\"asdf\"", .loc = undefined },
+    var toks = [3]Token{
+        .{ .tag = Token.Tag.BANG, .lexeme = "!", .loc = undefined },
+        .{ .tag = Token.Tag.BANG, .lexeme = "!", .loc = undefined },
         .{ .tag = Token.Tag.TRUE, .lexeme = "true", .loc = undefined },
-        .{ .tag = Token.Tag.NIL, .lexeme = "nil", .loc = undefined },
-        .{ .tag = Token.Tag.PLUS, .lexeme = "nil", .loc = undefined },
     };
-    var p = Parser{ .tokens = &toks, .pos = 0 };
-    const a = try p.parseLoxValue();
-    const b = try p.parseLoxValue();
-    const c = try p.parseLoxValue();
-    const d = try p.parseLoxValue();
-    const e = try p.parseLoxValue();
-    std.debug.print("{d}\n", .{a.number});
-    std.debug.print("'{s}'\n", .{b.string});
-    std.debug.print("{?}\n", .{c});
-    std.debug.print("{?}\n", .{d});
-    std.debug.print("{?}\n", .{e});
+    var aa = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer aa.deinit();
+    var p = Parser{ .tokens = &toks, .pos = 0, .allocator = aa.allocator() };
+    const a = try p.parseUnary();
+    std.debug.print("{s}\n", .{a.unary.operator.lexeme});
+    std.debug.print("{s}\n", .{a.unary.right.unary.operator.lexeme});
+    std.debug.print("{?}\n", .{a.unary.right.unary.right.literal.bool});
 }
