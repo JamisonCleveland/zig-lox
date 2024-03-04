@@ -68,7 +68,7 @@ const Parser = struct {
     fn parseUnary(p: *Self) !*Expr {
         const t = p.tokens[p.pos];
         switch (t.tag) {
-            .BANG, .MINUS => {
+            .bang, .minus => {
                 p.pos += 1;
                 var u = try p.parseUnary();
 
@@ -92,7 +92,7 @@ const Parser = struct {
         while (p.pos < p.tokens.len) {
             const t = p.tokens[p.pos];
             switch (t.tag) {
-                .SLASH, .STAR => {
+                .slash, .star => {
                     p.pos += 1;
                     var rhs = try p.parseUnary();
 
@@ -109,20 +109,20 @@ const Parser = struct {
     fn parseLoxValue(p: *Self) !LoxValue {
         const t = p.tokens[p.pos];
         switch (t.tag) {
-            .NUMBER => {
+            .number => {
                 p.pos += 1;
                 const n = std.fmt.parseFloat(f32, t.lexeme) catch unreachable;
                 return LoxValue{ .number = n };
             },
-            .STRING => {
+            .string => {
                 p.pos += 1;
                 return LoxValue{ .string = t.lexeme[1 .. t.lexeme.len - 1] };
             },
-            .TRUE, .FALSE => {
+            .true_, .false_ => {
                 p.pos += 1;
-                return LoxValue{ .bool = t.tag == .TRUE };
+                return LoxValue{ .bool = t.tag == .true_ };
             },
-            .NIL => {
+            .nil => {
                 p.pos += 1;
                 return LoxValue.nil;
             },

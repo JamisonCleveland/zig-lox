@@ -12,72 +12,72 @@ pub const Token = struct {
     };
 
     const keywords = std.ComptimeStringMap(Token.Tag, .{
-        .{ "and", Token.Tag.AND },
-        .{ "class", Token.Tag.CLASS },
-        .{ "else", Token.Tag.ELSE },
-        .{ "false", Token.Tag.FALSE },
-        .{ "fun", Token.Tag.FUN },
-        .{ "for", Token.Tag.FOR },
-        .{ "if", Token.Tag.IF },
-        .{ "nil", Token.Tag.NIL },
-        .{ "or", Token.Tag.OR },
-        .{ "print", Token.Tag.PRINT },
-        .{ "return", Token.Tag.RETURN },
-        .{ "super", Token.Tag.SUPER },
-        .{ "this", Token.Tag.THIS },
-        .{ "true", Token.Tag.TRUE },
-        .{ "var", Token.Tag.VAR },
-        .{ "while", Token.Tag.WHILE },
+        .{ "and", Token.Tag.and_ },
+        .{ "class", Token.Tag.class },
+        .{ "else", Token.Tag.else_ },
+        .{ "false", Token.Tag.false_ },
+        .{ "fun", Token.Tag.fun },
+        .{ "for", Token.Tag.for_ },
+        .{ "if", Token.Tag.if_ },
+        .{ "nil", Token.Tag.nil },
+        .{ "or", Token.Tag.or_ },
+        .{ "print", Token.Tag.print },
+        .{ "return", Token.Tag.return_ },
+        .{ "super", Token.Tag.super },
+        .{ "this", Token.Tag.this },
+        .{ "true", Token.Tag.true_ },
+        .{ "var", Token.Tag.var_ },
+        .{ "while", Token.Tag.while_ },
     });
 
     pub const Tag = enum {
         // Single-character tokens.
-        LEFT_PAREN,
-        RIGHT_PAREN,
-        LEFT_BRACE,
-        RIGHT_BRACE,
-        COMMA,
-        DOT,
-        MINUS,
-        PLUS,
-        SEMICOLON,
-        SLASH,
-        STAR,
+        left_paren,
+        right_paren,
+        left_brace,
+        right_brace,
+        comma,
+        dot,
+        minus,
+        plus,
+        semicolon,
+        slash,
+        star,
 
         // One or two character tokens.
-        BANG,
-        BANG_EQUAL,
-        EQUAL,
-        EQUAL_EQUAL,
-        GREATER,
-        GREATER_EQUAL,
-        LESS,
-        LESS_EQUAL,
+        bang,
+        bang_equal,
+        equal,
+        equal_equal,
+        greater,
+        greater_equal,
+        less,
+        less_equal,
 
         // Literals.
-        IDENTIFIER,
-        STRING,
-        NUMBER,
+        identifier,
+        string,
+        number,
 
         // Keywords.
-        AND,
-        CLASS,
-        ELSE,
-        FALSE,
-        FUN,
-        FOR,
-        IF,
-        NIL,
-        OR,
-        PRINT,
-        RETURN,
-        SUPER,
-        THIS,
-        TRUE,
-        VAR,
-        WHILE,
+        and_,
+        class,
+        else_,
+        false_,
+        fun,
+        for_,
+        if_,
+        nil,
+        or_,
+        print,
+        return_,
+        super,
+        this,
+        true_,
+        var_,
+        while_,
 
-        EOF,
+        eof,
     };
 };
 
@@ -106,7 +106,7 @@ pub const Lexer = struct {
             try a.append(t);
         }
         try a.append(Token{
-            .tag = Token.Tag.EOF,
+            .tag = Token.Tag.eof,
             .loc = .{ .start = l.pos, .end = l.pos, .line = l.line },
             .lexeme = &[0]u8{}, // a little hacky. Is there a better way?
         });
@@ -129,19 +129,19 @@ pub const Lexer = struct {
         };
 
         if (l.identifier()) {
-            result.tag = Token.keywords.get(l.src[start..l.pos]) orelse Token.Tag.IDENTIFIER;
+            result.tag = Token.keywords.get(l.src[start..l.pos]) orelse Token.Tag.identifier;
             result.loc.end = l.pos;
             result.loc.line = l.line;
             result.lexeme = l.src[start..l.pos];
             return result;
         } else if (try l.string()) {
-            result.tag = Token.Tag.STRING;
+            result.tag = Token.Tag.string;
             result.loc.end = l.pos;
             result.loc.line = l.line;
             result.lexeme = l.src[start..l.pos];
             return result;
         } else if (l.number()) {
-            result.tag = Token.Tag.NUMBER;
+            result.tag = Token.Tag.number;
             result.loc.end = l.pos;
             result.loc.line = l.line;
             result.lexeme = l.src[start..l.pos];
@@ -152,64 +152,64 @@ pub const Lexer = struct {
         l.pos += 1;
         switch (c) {
             '(' => {
-                result.tag = Token.Tag.LEFT_PAREN;
+                result.tag = Token.Tag.left_paren;
             },
             ')' => {
-                result.tag = Token.Tag.RIGHT_PAREN;
+                result.tag = Token.Tag.right_paren;
             },
             '{' => {
-                result.tag = Token.Tag.LEFT_BRACE;
+                result.tag = Token.Tag.left_brace;
             },
             '}' => {
-                result.tag = Token.Tag.RIGHT_BRACE;
+                result.tag = Token.Tag.right_brace;
             },
             ',' => {
-                result.tag = Token.Tag.COMMA;
+                result.tag = Token.Tag.comma;
             },
             '.' => {
-                result.tag = Token.Tag.DOT;
+                result.tag = Token.Tag.dot;
             },
             '-' => {
-                result.tag = Token.Tag.MINUS;
+                result.tag = Token.Tag.minus;
             },
             '+' => {
-                result.tag = Token.Tag.PLUS;
+                result.tag = Token.Tag.plus;
             },
             ';' => {
-                result.tag = Token.Tag.SEMICOLON;
+                result.tag = Token.Tag.semicolon;
             },
             '/' => {
-                result.tag = Token.Tag.SLASH;
+                result.tag = Token.Tag.slash;
             },
             '*' => {
-                result.tag = Token.Tag.STAR;
+                result.tag = Token.Tag.star;
             },
             '!' => {
                 if (l.consume('=')) {
-                    result.tag = Token.Tag.BANG_EQUAL;
+                    result.tag = Token.Tag.bang_equal;
                 } else {
-                    result.tag = Token.Tag.BANG;
+                    result.tag = Token.Tag.bang;
                 }
             },
             '=' => {
                 if (l.consume('=')) {
-                    result.tag = Token.Tag.EQUAL_EQUAL;
+                    result.tag = Token.Tag.equal_equal;
                 } else {
-                    result.tag = Token.Tag.EQUAL;
+                    result.tag = Token.Tag.equal;
                 }
             },
             '>' => {
                 if (l.consume('=')) {
-                    result.tag = Token.Tag.GREATER_EQUAL;
+                    result.tag = Token.Tag.greater_equal;
                 } else {
-                    result.tag = Token.Tag.GREATER;
+                    result.tag = Token.Tag.greater;
                 }
             },
             '<' => {
                 if (l.consume('=')) {
-                    result.tag = Token.Tag.LESS_EQUAL;
+                    result.tag = Token.Tag.less_equal;
                 } else {
-                    result.tag = Token.Tag.LESS;
+                    result.tag = Token.Tag.less;
                 }
             },
             else => {
