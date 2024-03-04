@@ -49,7 +49,12 @@ fn ast_print(expr: *const Expr, writer: anytype) !void {
             _ = try writer.write(")");
         },
         .literal => |l| {
-            _ = try std.fmt.format(writer, "{d}", .{l.number});
+            switch (l) {
+                .bool => |lit| try std.fmt.format(writer, "{?}", .{lit}),
+                .nil => try std.fmt.format(writer, "nil", .{}),
+                .number => |lit| try std.fmt.format(writer, "{d}", .{lit}),
+                .string => |lit| try std.fmt.format(writer, "{s}", .{lit}),
+            }
         },
         .unary => |u| {
             try writer.print("({s} ", .{u.operator.lexeme});
@@ -65,15 +70,26 @@ const Parser = struct {
     pos: usize,
     allocator: std.mem.Allocator,
 
-    fn parseUnary(p: *Self) !*Expr {
+    const Error = error{
+        UnexpectedToken,
+        OutOfMemory,
+    };
+
+    fn parseExpression(p: *Self) Error!*Expr {
+        return p.parseFactor();
+    }
+
+    fn parsePrimary(p: *Self) Error!*Expr {
         const t = p.tokens[p.pos];
         switch (t.tag) {
-            .bang, .minus => {
+            .left_paren => {
                 p.pos += 1;
-                var u = try p.parseUnary();
+                var e = try p.parseExpression();
+                if (p.tokens[p.pos].tag != .right_paren) return error.UnexpectedToken;
+                p.pos += 1;
 
                 var res = try p.allocator.create(Expr);
-                res.* = .{ .unary = .{ .operator = t, .right = u } };
+                res.* = .{ .grouping = .{ .expression = e } };
                 return res;
             },
             else => {
@@ -86,7 +102,22 @@ const Parser = struct {
         }
     }
 
-    fn parseFactor(p: *Self) !*Expr {
+    fn parseUnary(p: *Self) Error!*Expr {
+        const t = p.tokens[p.pos];
+        switch (t.tag) {
+            .bang, .minus => {
+                p.pos += 1;
+                var u = try p.parseUnary();
+
+                var res = try p.allocator.create(Expr);
+                res.* = .{ .unary = .{ .operator = t, .right = u } };
+                return res;
+            },
+            else => return try p.parsePrimary(),
+        }
+    }
+
+    fn parseFactor(p: *Self) Error!*Expr {
         var lhs = try p.parseUnary();
 
         while (p.pos < p.tokens.len) {
@@ -106,7 +137,7 @@ const Parser = struct {
         return lhs;
     }
 
-    fn parseLoxValue(p: *Self) !LoxValue {
+    fn parseLoxValue(p: *Self) Error!LoxValue {
         const t = p.tokens[p.pos];
         switch (t.tag) {
             .number => {
@@ -132,7 +163,7 @@ const Parser = struct {
 };
 
 test "asdf" {
-    var lexer = @import("lexer.zig").Lexer.init("true * 0");
+    var lexer = @import("lexer.zig").Lexer.init("(true * 0)");
     var toks = std.ArrayList(Token).init(std.testing.allocator);
     defer toks.deinit();
     lexer.scanAll(&toks) catch unreachable;
@@ -141,11 +172,14 @@ test "asdf" {
     defer aa.deinit();
 
     var p = Parser{ .tokens = toks.items, .pos = 0, .allocator = aa.allocator() };
-    const a = try p.parseFactor();
+    const a = try p.parseExpression();
+    std.debug.print("\n", .{});
+    try ast_print(a, std.io.getStdErr().writer());
+    std.debug.print("\n", .{});
 
-    std.debug.print("\n{?} {s} {?}\n", .{
-        a.binary.left.literal.bool,
-        a.binary.operator.lexeme,
-        a.binary.right.literal.number,
-    });
+    //std.debug.print("\n{?} {s} {?}\n", .{
+    //    a.binary.left.literal.bool,
+    //    a.binary.operator.lexeme,
+    //    a.binary.right.literal.number,
+    //});
 }
