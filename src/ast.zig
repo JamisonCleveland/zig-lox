@@ -107,7 +107,12 @@ pub const Parser = struct {
         switch (t.tag) {
             .bang, .minus => {
                 p.pos += 1;
-                var u = try p.parseUnary();
+                const r_bp: u8 = switch (t.tag) {
+                    .bang => 3,
+                    .minus => 9,
+                    else => unreachable,
+                };
+                var u = try p.parsePratt(r_bp);
 
                 var res = try p.allocator.create(Expr);
                 res.* = .{ .unary = .{ .operator = t, .right = u } };
@@ -118,18 +123,31 @@ pub const Parser = struct {
     }
 
     fn parsePratt(p: *Self, min_bp: u8) Error!*Expr {
-        var lhs = try p.parsePrimary();
+        var lhs = try p.parseUnary();
 
         while (p.pos < p.tokens.len) {
             const op = p.tokens[p.pos];
 
             switch (op.tag) {
-                .star, .slash => {},
+                .bang_equal,
+                .equal_equal,
+                .greater,
+                .greater_equal,
+                .less,
+                .less_equal,
+                .plus,
+                .minus,
+                .star,
+                .slash,
+                => {},
                 else => break,
             }
 
             const l_bp: u8 = switch (op.tag) {
-                .star, .slash => 3,
+                .bang_equal, .equal_equal => 1,
+                .greater, .greater_equal, .less, .less_equal => 3,
+                .plus, .minus => 5,
+                .star, .slash => 7,
                 else => unreachable,
             };
             const r_bp = l_bp + 1;
