@@ -2,7 +2,7 @@ const std = @import("std");
 const Token = @import("lexer.zig").Token;
 
 // TODO:
-// * Pratt parsing for the whole expression language.
+// * Cleanup pratt parser.
 // * Cleaner interface to heap allocate expressions.
 
 const LoxValue = union(Tag) {
