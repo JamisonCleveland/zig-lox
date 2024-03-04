@@ -6,7 +6,7 @@ const LoxValue = union(Tag) {
     number: f32,
     string: []const u8,
     bool: bool,
-    nil: struct {},
+    nil,
 };
 
 const Expr = union(Tag) {
@@ -82,6 +82,26 @@ const Parser = struct {
         }
     }
 
+    fn parseFactor(p: *Self) !*Expr {
+        var lhs = try p.parseUnary();
+
+        while (p.pos < p.tokens.len) {
+            const t = p.tokens[p.pos];
+            switch (t.tag) {
+                .SLASH, .STAR => {
+                    p.pos += 1;
+                    var rhs = try p.parseUnary();
+
+                    var res = try p.allocator.create(Expr);
+                    res.* = .{ .binary = .{ .left = lhs, .operator = t, .right = rhs } };
+                    lhs = res;
+                },
+                else => break,
+            }
+        }
+        return lhs;
+    }
+
     fn parseLoxValue(p: *Self) !LoxValue {
         const t = p.tokens[p.pos];
         switch (t.tag) {
@@ -100,7 +120,7 @@ const Parser = struct {
             },
             .NIL => {
                 p.pos += 1;
-                return LoxValue{ .nil = .{} };
+                return LoxValue.nil;
             },
             else => return error.UnexpectedToken,
         }
@@ -109,15 +129,15 @@ const Parser = struct {
 
 test "asdf" {
     var toks = [3]Token{
-        .{ .tag = Token.Tag.BANG, .lexeme = "!", .loc = undefined },
-        .{ .tag = Token.Tag.BANG, .lexeme = "!", .loc = undefined },
         .{ .tag = Token.Tag.TRUE, .lexeme = "true", .loc = undefined },
+        .{ .tag = Token.Tag.STAR, .lexeme = "*", .loc = undefined },
+        .{ .tag = Token.Tag.NUMBER, .lexeme = "0", .loc = undefined },
     };
     var aa = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer aa.deinit();
     var p = Parser{ .tokens = &toks, .pos = 0, .allocator = aa.allocator() };
-    const a = try p.parseUnary();
-    std.debug.print("{s}\n", .{a.unary.operator.lexeme});
-    std.debug.print("{s}\n", .{a.unary.right.unary.operator.lexeme});
-    std.debug.print("{?}\n", .{a.unary.right.unary.right.literal.bool});
+    const a = try p.parseFactor();
+    std.debug.print("{?}\n", .{a.binary.left.literal.bool});
+    std.debug.print("{s}\n", .{a.binary.operator.lexeme});
+    std.debug.print("{?}\n", .{a.binary.right.literal.number});
 }
