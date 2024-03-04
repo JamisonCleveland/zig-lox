@@ -1,6 +1,11 @@
 const std = @import("std");
 const Token = @import("lexer.zig").Token;
 
+// TODO:
+// * Clean tokenizing at comptime.
+// * Pratt parsing for the whole expression language.
+// * Cleaner interface to heap allocate expressions.
+
 const LoxValue = union(Tag) {
     const Tag = enum { number, string, bool, nil };
     number: f32,
