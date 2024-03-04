@@ -53,7 +53,7 @@ fn ast_print(expr: *const Expr, writer: anytype) !void {
                 .bool => |lit| try std.fmt.format(writer, "{?}", .{lit}),
                 .nil => try std.fmt.format(writer, "nil", .{}),
                 .number => |lit| try std.fmt.format(writer, "{d}", .{lit}),
-                .string => |lit| try std.fmt.format(writer, "{s}", .{lit}),
+                .string => |lit| try std.fmt.format(writer, "\"{s}\"", .{lit}),
             }
         },
         .unary => |u| {
@@ -76,7 +76,7 @@ const Parser = struct {
     };
 
     fn parseExpression(p: *Self) Error!*Expr {
-        return p.parseFactor();
+        return try p.parsePratt(0);
     }
 
     fn parsePrimary(p: *Self) Error!*Expr {
@@ -117,22 +117,32 @@ const Parser = struct {
         }
     }
 
-    fn parseFactor(p: *Self) Error!*Expr {
-        var lhs = try p.parseUnary();
+    fn parsePratt(p: *Self, min_bp: u8) Error!*Expr {
+        var lhs = try p.parsePrimary();
 
         while (p.pos < p.tokens.len) {
-            const t = p.tokens[p.pos];
-            switch (t.tag) {
-                .slash, .star => {
-                    p.pos += 1;
-                    var rhs = try p.parseUnary();
+            const op = p.tokens[p.pos];
+            std.debug.print("{?}\n", .{op.tag});
 
-                    var res = try p.allocator.create(Expr);
-                    res.* = .{ .binary = .{ .left = lhs, .operator = t, .right = rhs } };
-                    lhs = res;
-                },
+            switch (op.tag) {
+                .star, .slash => {},
                 else => break,
             }
+
+            const l_bp: u8 = switch (op.tag) {
+                .star, .slash => 3,
+                else => unreachable,
+            };
+            const r_bp = l_bp + 1;
+
+            if (l_bp < min_bp) break;
+            p.pos += 1;
+
+            var rhs = try p.parsePratt(r_bp);
+
+            var res = try p.allocator.create(Expr);
+            res.* = .{ .binary = .{ .left = lhs, .operator = op, .right = rhs } };
+            lhs = res;
         }
         return lhs;
     }
@@ -163,7 +173,7 @@ const Parser = struct {
 };
 
 test "asdf" {
-    var lexer = @import("lexer.zig").Lexer.init("(true * 0)");
+    var lexer = @import("lexer.zig").Lexer.init("2 / (2 * (0 * 2))");
     var toks = std.ArrayList(Token).init(std.testing.allocator);
     defer toks.deinit();
     lexer.scanAll(&toks) catch unreachable;
@@ -176,10 +186,4 @@ test "asdf" {
     std.debug.print("\n", .{});
     try ast_print(a, std.io.getStdErr().writer());
     std.debug.print("\n", .{});
-
-    //std.debug.print("\n{?} {s} {?}\n", .{
-    //    a.binary.left.literal.bool,
-    //    a.binary.operator.lexeme,
-    //    a.binary.right.literal.number,
-    //});
 }
