@@ -2,7 +2,6 @@ const std = @import("std");
 const Token = @import("lexer.zig").Token;
 
 // TODO:
-// * Clean tokenizing at comptime.
 // * Pratt parsing for the whole expression language.
 // * Cleaner interface to heap allocate expressions.
 
@@ -133,16 +132,20 @@ const Parser = struct {
 };
 
 test "asdf" {
-    var toks = [3]Token{
-        .{ .tag = Token.Tag.TRUE, .lexeme = "true", .loc = undefined },
-        .{ .tag = Token.Tag.STAR, .lexeme = "*", .loc = undefined },
-        .{ .tag = Token.Tag.NUMBER, .lexeme = "0", .loc = undefined },
-    };
+    var lexer = @import("lexer.zig").Lexer.init("true * 0");
+    var toks = std.ArrayList(Token).init(std.testing.allocator);
+    defer toks.deinit();
+    lexer.scanAll(&toks) catch unreachable;
+
     var aa = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer aa.deinit();
-    var p = Parser{ .tokens = &toks, .pos = 0, .allocator = aa.allocator() };
+
+    var p = Parser{ .tokens = toks.items, .pos = 0, .allocator = aa.allocator() };
     const a = try p.parseFactor();
-    std.debug.print("{?}\n", .{a.binary.left.literal.bool});
-    std.debug.print("{s}\n", .{a.binary.operator.lexeme});
-    std.debug.print("{?}\n", .{a.binary.right.literal.number});
+
+    std.debug.print("\n{?} {s} {?}\n", .{
+        a.binary.left.literal.bool,
+        a.binary.operator.lexeme,
+        a.binary.right.literal.number,
+    });
 }
