@@ -1,5 +1,6 @@
 const std = @import("std");
 const lex = @import("lexer.zig");
+const ast = @import("ast.zig");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -70,7 +71,14 @@ pub fn run(allocator: std.mem.Allocator, src: [:0]const u8) !void {
         else => return err,
     };
 
-    for (toks.items) |t| {
-        std.debug.print("'{s}', line: {d}, tag: {?}\n", .{ t.lexeme, t.loc.line, t.tag });
-    }
+    //for (toks.items) |t| {
+    //    std.debug.print("'{s}', line: {d}, tag: {?}\n", .{ t.lexeme, t.loc.line, t.tag });
+    //}
+    var aa = std.heap.ArenaAllocator.init(allocator);
+    defer aa.deinit();
+
+    var p = ast.Parser{ .tokens = toks.items, .pos = 0, .allocator = aa.allocator() };
+    const a = try p.parseExpression();
+    try ast.ast_print(a, stderr);
+    std.debug.print("\n", .{});
 }

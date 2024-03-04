@@ -34,7 +34,7 @@ const Expr = union(Tag) {
     };
 };
 
-fn ast_print(expr: *const Expr, writer: anytype) !void {
+pub fn ast_print(expr: *const Expr, writer: anytype) !void {
     switch (expr.*) {
         .binary => |b| {
             try writer.print("({s} ", .{b.operator.lexeme});
@@ -64,7 +64,7 @@ fn ast_print(expr: *const Expr, writer: anytype) !void {
     }
 }
 
-const Parser = struct {
+pub const Parser = struct {
     const Self = @This();
     tokens: []Token,
     pos: usize,
@@ -75,7 +75,7 @@ const Parser = struct {
         OutOfMemory,
     };
 
-    fn parseExpression(p: *Self) Error!*Expr {
+    pub fn parseExpression(p: *Self) Error!*Expr {
         return try p.parsePratt(0);
     }
 
@@ -122,7 +122,6 @@ const Parser = struct {
 
         while (p.pos < p.tokens.len) {
             const op = p.tokens[p.pos];
-            std.debug.print("{?}\n", .{op.tag});
 
             switch (op.tag) {
                 .star, .slash => {},
