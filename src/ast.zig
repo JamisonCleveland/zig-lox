@@ -201,8 +201,38 @@ pub const Parser = struct {
     }
 };
 
+pub fn eval(e: *const Expr) LoxValue {
+    switch (e.*) {
+        .binary => |b| {
+            const left = eval(b.left);
+            const right = eval(b.right);
+            switch (b.operator.tag) {
+                .plus => return .{ .number = left.number + right.number },
+                .minus => return .{ .number = left.number - right.number },
+                .slash => return .{ .number = left.number / right.number },
+                .star => return .{ .number = left.number * right.number },
+                else => unreachable,
+            }
+        },
+        .grouping => |g| {
+            return eval(g.expression);
+        },
+        .literal => |l| {
+            return l;
+        },
+        .unary => |u| {
+            const right = eval(u.right);
+            switch (u.operator.tag) {
+                .minus => return .{ .number = -right.number },
+                else => unreachable,
+            }
+            unreachable;
+        },
+    }
+}
+
 test "asdf" {
-    var lexer = @import("lexer.zig").Lexer.init("2 / (2 * (0 * 2))");
+    var lexer = @import("lexer.zig").Lexer.init("2 / (2 * (3 * 2))");
     var toks = std.ArrayList(Token).init(std.testing.allocator);
     defer toks.deinit();
     lexer.scanAll(&toks) catch unreachable;
@@ -215,4 +245,5 @@ test "asdf" {
     std.debug.print("\n", .{});
     try ast_print(a, std.io.getStdErr().writer());
     std.debug.print("\n", .{});
+    std.debug.print("val = {d}\n", .{eval(a).number});
 }
