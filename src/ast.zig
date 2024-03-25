@@ -75,6 +75,41 @@ pub const Parser = struct {
         OutOfMemory,
     };
 
+    pub fn isOperator(t: Token.Tag) bool {
+        return switch (t) {
+            .bang_equal,
+            .equal_equal,
+            .greater,
+            .greater_equal,
+            .less,
+            .less_equal,
+            .plus,
+            .minus,
+            .star,
+            .slash,
+            => true,
+            else => false,
+        };
+    }
+
+    pub fn infixLeftBP(t: Token.Tag) u8 {
+        return switch (t) {
+            .bang_equal, .equal_equal => 1,
+            .greater, .greater_equal, .less, .less_equal => 3,
+            .plus, .minus => 5,
+            .star, .slash => 7,
+            else => unreachable,
+        };
+    }
+
+    pub fn prefixRightBP(t: Token.Tag) u8 {
+        return switch (t) {
+            .bang => 3,
+            .minus => 9,
+            else => unreachable,
+        };
+    }
+
     pub fn parseExpression(p: *Self) Error!*Expr {
         return try p.parsePratt(0);
     }
@@ -107,11 +142,7 @@ pub const Parser = struct {
         switch (t.tag) {
             .bang, .minus => {
                 p.pos += 1;
-                const r_bp: u8 = switch (t.tag) {
-                    .bang => 3,
-                    .minus => 9,
-                    else => unreachable,
-                };
+                const r_bp: u8 = prefixRightBP(t.tag);
                 var u = try p.parsePratt(r_bp);
 
                 var res = try p.allocator.create(Expr);
@@ -128,28 +159,9 @@ pub const Parser = struct {
         while (p.pos < p.tokens.len) {
             const op = p.tokens[p.pos];
 
-            switch (op.tag) {
-                .bang_equal,
-                .equal_equal,
-                .greater,
-                .greater_equal,
-                .less,
-                .less_equal,
-                .plus,
-                .minus,
-                .star,
-                .slash,
-                => {},
-                else => break,
-            }
+            if (!isOperator(op.tag)) break;
 
-            const l_bp: u8 = switch (op.tag) {
-                .bang_equal, .equal_equal => 1,
-                .greater, .greater_equal, .less, .less_equal => 3,
-                .plus, .minus => 5,
-                .star, .slash => 7,
-                else => unreachable,
-            };
+            const l_bp: u8 = infixLeftBP(op.tag);
             const r_bp = l_bp + 1;
 
             if (l_bp < min_bp) break;
