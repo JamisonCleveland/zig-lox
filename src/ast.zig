@@ -217,11 +217,16 @@ pub const Runtime = struct {
     const Self = @This();
     allocator: std.mem.Allocator,
 
-    pub fn eval(self: *Self, e: Expr) LoxValue {
+    const Error = error{
+        OutOfMemory,
+        RuntimeError,
+    };
+
+    pub fn eval(self: *Self, e: Expr) Error!LoxValue {
         switch (e) {
             .binary => |b| {
-                const left = self.eval(b.left.*);
-                const right = self.eval(b.right.*);
+                const left = try self.eval(b.left.*);
+                const right = try self.eval(b.right.*);
                 switch (b.operator.tag) {
                     .greater => {
                         return .{ .bool = left.number > right.number };
@@ -249,21 +254,21 @@ pub const Runtime = struct {
                                     .number => |r_num| {
                                         return .{ .number = l_num + r_num };
                                     },
-                                    else => unreachable,
+                                    else => return error.RuntimeError,
                                 }
                             },
                             .string => |l_str| {
                                 switch (right) {
                                     .string => |r_str| {
-                                        var new_str = self.allocator.alloc(u8, l_str.len + r_str.len) catch unreachable;
+                                        var new_str = try self.allocator.alloc(u8, l_str.len + r_str.len);
                                         @memcpy(new_str[0..l_str.len], l_str);
                                         @memcpy(new_str[l_str.len..], r_str);
                                         return LoxValue{ .string = new_str };
                                     },
-                                    else => unreachable,
+                                    else => return error.RuntimeError,
                                 }
                             },
-                            else => unreachable,
+                            else => return error.RuntimeError,
                         }
                     },
                     .minus => return .{ .number = left.number - right.number },
@@ -272,16 +277,15 @@ pub const Runtime = struct {
                     else => unreachable,
                 }
             },
-            .grouping => |g| {
-                return self.eval(g.expression.*);
-            },
-            .literal => |l| {
-                return l;
-            },
+            .grouping => |g| return try self.eval(g.expression.*),
+            .literal => |l| return l,
             .unary => |u| {
-                const right = self.eval(u.right.*);
+                const right = try self.eval(u.right.*);
                 switch (u.operator.tag) {
-                    .minus => return .{ .number = -right.number },
+                    .minus => switch (right) {
+                        .number => |r_num| return .{ .number = -r_num },
+                        else => return error.RuntimeError,
+                    },
                     .bang => return .{ .bool = !isTruthy(right) },
                     else => unreachable,
                 }

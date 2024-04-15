@@ -81,6 +81,8 @@ pub fn run(allocator: std.mem.Allocator, src: [:0]const u8) !void {
     var env = ast.Runtime{ .allocator = aa.allocator() };
     if (p.parseExpression()) |e| {
         std.debug.print("{}\n", .{e});
-        std.debug.print("{}\n", .{env.eval(e.*)});
+        if (env.eval(e.*)) |v| {
+            std.debug.print("{}\n", .{v});
+        } else |_| {}
     } else |_| {}
 }
