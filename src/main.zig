@@ -78,8 +78,9 @@ pub fn run(allocator: std.mem.Allocator, src: [:0]const u8) !void {
     defer aa.deinit();
 
     var p = ast.Parser{ .tokens = toks.items, .pos = 0, .allocator = aa.allocator() };
+    var env = ast.Runtime{};
     if (p.parseExpression()) |e| {
         std.debug.print("{}\n", .{e});
-        std.debug.print("{}\n", .{ast.eval(e.*)});
+        std.debug.print("{}\n", .{env.eval(e.*)});
     } else |_| {}
 }

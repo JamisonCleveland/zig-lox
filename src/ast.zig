@@ -213,77 +213,79 @@ pub const Parser = struct {
     }
 };
 
-pub fn eval(e: Expr) LoxValue {
-    switch (e) {
-        .binary => |b| {
-            const left = eval(b.left.*);
-            const right = eval(b.right.*);
-            switch (b.operator.tag) {
-                .greater => {
-                    return .{ .bool = left.number > right.number };
-                },
-                .greater_equal => {
-                    return .{ .bool = left.number >= right.number };
-                },
-                .less => {
-                    return .{ .bool = left.number < right.number };
-                },
-                .less_equal => {
-                    return .{ .bool = left.number <= right.number };
-                },
-                .equal_equal => {
-                    return .{ .bool = isEqual(left, right) };
-                },
-                .bang_equal => {
-                    return .{ .bool = !isEqual(left, right) };
-                },
-                .plus => {
-                    // I don't think there is an alternative ...
-                    switch (left) {
-                        .number => |l_num| {
-                            switch (right) {
-                                .number => |r_num| {
-                                    return .{ .number = l_num + r_num };
-                                },
-                                else => unreachable,
-                            }
-                        },
-                        .string => |l_str| {
-                            _ = l_str;
-                            switch (right) {
-                                .string => |r_str| {
-                                    _ = r_str;
-                                    // return nothing for now
-                                    return .{ .string = "" };
-                                },
-                                else => unreachable,
-                            }
-                        },
-                        else => unreachable,
-                    }
-                },
-                .minus => return .{ .number = left.number - right.number },
-                .slash => return .{ .number = left.number / right.number },
-                .star => return .{ .number = left.number * right.number },
-                else => unreachable,
-            }
-        },
-        .grouping => |g| {
-            return eval(g.expression.*);
-        },
-        .literal => |l| {
-            return l;
-        },
-        .unary => |u| {
-            const right = eval(u.right.*);
-            switch (u.operator.tag) {
-                .minus => return .{ .number = -right.number },
-                .bang => return .{ .bool = !isTruthy(right) },
-                else => unreachable,
-            }
-        },
+pub const Runtime = struct {
+    pub fn eval(self: Runtime, e: Expr) LoxValue {
+        switch (e) {
+            .binary => |b| {
+                const left = self.eval(b.left.*);
+                const right = self.eval(b.right.*);
+                switch (b.operator.tag) {
+                    .greater => {
+                        return .{ .bool = left.number > right.number };
+                    },
+                    .greater_equal => {
+                        return .{ .bool = left.number >= right.number };
+                    },
+                    .less => {
+                        return .{ .bool = left.number < right.number };
+                    },
+                    .less_equal => {
+                        return .{ .bool = left.number <= right.number };
+                    },
+                    .equal_equal => {
+                        return .{ .bool = isEqual(left, right) };
+                    },
+                    .bang_equal => {
+                        return .{ .bool = !isEqual(left, right) };
+                    },
+                    .plus => {
+                        // I don't think there is an alternative ...
+                        switch (left) {
+                            .number => |l_num| {
+                                switch (right) {
+                                    .number => |r_num| {
+                                        return .{ .number = l_num + r_num };
+                                    },
+                                    else => unreachable,
+                                }
+                            },
+                            .string => |l_str| {
+                                _ = l_str;
+                                switch (right) {
+                                    .string => |r_str| {
+                                        _ = r_str;
+                                        // return nothing for now
+                                        return .{ .string = "" };
+                                    },
+                                    else => unreachable,
+                                }
+                            },
+                            else => unreachable,
+                        }
+                    },
+                    .minus => return .{ .number = left.number - right.number },
+                    .slash => return .{ .number = left.number / right.number },
+                    .star => return .{ .number = left.number * right.number },
+                    else => unreachable,
+                }
+            },
+            .grouping => |g| {
+                return self.eval(g.expression.*);
+            },
+            .literal => |l| {
+                return l;
+            },
+            .unary => |u| {
+                const right = self.eval(u.right.*);
+                switch (u.operator.tag) {
+                    .minus => return .{ .number = -right.number },
+                    .bang => return .{ .bool = !isTruthy(right) },
+                    else => unreachable,
+                }
+            },
+        }
     }
-}
+};
 
 fn isTruthy(l: LoxValue) bool {
     return switch (l) {
@@ -314,7 +316,9 @@ test "asdf" {
 
     var p = Parser{ .tokens = toks.items, .pos = 0, .allocator = aa.allocator() };
     const a = try p.parseExpression();
+
+    var env = Runtime{};
     std.debug.print("\n", .{});
     std.debug.print("{}\n", .{a});
-    std.debug.print("val = {d}\n", .{eval(a).number});
+    std.debug.print("val = {d}\n", .{env.eval(a).number});
 }
