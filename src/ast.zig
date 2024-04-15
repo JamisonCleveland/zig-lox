@@ -214,7 +214,10 @@ pub const Parser = struct {
 };
 
 pub const Runtime = struct {
-    pub fn eval(self: Runtime, e: Expr) LoxValue {
+    const Self = @This();
+    allocator: std.mem.Allocator,
+
+    pub fn eval(self: *Self, e: Expr) LoxValue {
         switch (e) {
             .binary => |b| {
                 const left = self.eval(b.left.*);
@@ -250,12 +253,12 @@ pub const Runtime = struct {
                                 }
                             },
                             .string => |l_str| {
-                                _ = l_str;
                                 switch (right) {
                                     .string => |r_str| {
-                                        _ = r_str;
-                                        // return nothing for now
-                                        return .{ .string = "" };
+                                        var new_str = self.allocator.alloc(u8, l_str.len + r_str.len) catch unreachable;
+                                        @memcpy(new_str[0..l_str.len], l_str);
+                                        @memcpy(new_str[l_str.len..], r_str);
+                                        return LoxValue{ .string = new_str };
                                     },
                                     else => unreachable,
                                 }
@@ -299,6 +302,10 @@ fn isEqual(a: LoxValue, b: LoxValue) bool {
     return switch (a) {
         .nil => switch (b) {
             .nil => true,
+            else => false,
+        },
+        .string => |sa| switch (b) {
+            .string => |sb| std.mem.eql(u8, sa, sb),
             else => false,
         },
         else => std.meta.eql(a, b),
