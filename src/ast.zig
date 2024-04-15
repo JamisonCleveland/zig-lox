@@ -11,6 +11,23 @@ const LoxValue = union(Tag) {
     string: []const u8,
     bool: bool,
     nil,
+
+    pub fn format(
+        self: LoxValue,
+        comptime fmt: []const u8,
+        options: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
+        _ = options;
+        _ = fmt;
+
+        switch (self) {
+            .bool => |b| try writer.print("{}", .{b}),
+            .nil => try writer.print("nil", .{}),
+            .number => |n| try writer.print("{d}", .{n}),
+            .string => |s| try writer.print("\"{s}\"", .{s}),
+        }
+    }
 };
 
 const Expr = union(Tag) {
@@ -32,37 +49,32 @@ const Expr = union(Tag) {
         operator: Token,
         right: *Self,
     };
-};
 
-pub fn ast_print(expr: *const Expr, writer: anytype) !void {
-    switch (expr.*) {
-        .binary => |b| {
-            try writer.print("({s} ", .{b.operator.lexeme});
-            try ast_print(b.left, writer);
-            _ = try writer.write(" ");
-            try ast_print(b.right, writer);
-            _ = try writer.write(")");
-        },
-        .grouping => |g| {
-            _ = try writer.write("(group ");
-            try ast_print(g.expression, writer);
-            _ = try writer.write(")");
-        },
-        .literal => |l| {
-            switch (l) {
-                .bool => |lit| try std.fmt.format(writer, "{?}", .{lit}),
-                .nil => try std.fmt.format(writer, "nil", .{}),
-                .number => |lit| try std.fmt.format(writer, "{d}", .{lit}),
-                .string => |lit| try std.fmt.format(writer, "\"{s}\"", .{lit}),
-            }
-        },
-        .unary => |u| {
-            try writer.print("({s} ", .{u.operator.lexeme});
-            try ast_print(u.right, writer);
-            _ = try writer.write(")");
-        },
+    pub fn format(
+        self: Self,
+        comptime fmt: []const u8,
+        options: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
+        _ = options;
+        _ = fmt;
+
+        switch (self) {
+            .binary => |b| {
+                try writer.print("({s} {} {})", .{ b.operator.lexeme, b.left, b.right });
+            },
+            .grouping => |g| {
+                try writer.print("(group {})", .{g.expression});
+            },
+            .literal => |l| {
+                try writer.print("{}", .{l});
+            },
+            .unary => |u| {
+                try writer.print("({s} {})", .{ u.operator.lexeme, u.right });
+            },
+        }
     }
-}
+};
 
 pub const Parser = struct {
     const Self = @This();
@@ -224,9 +236,9 @@ pub fn eval(e: *const Expr) LoxValue {
             const right = eval(u.right);
             switch (u.operator.tag) {
                 .minus => return .{ .number = -right.number },
+                .bang => return .{ .bool = !right.bool },
                 else => unreachable,
             }
-            unreachable;
         },
     }
 }
@@ -243,7 +255,6 @@ test "asdf" {
     var p = Parser{ .tokens = toks.items, .pos = 0, .allocator = aa.allocator() };
     const a = try p.parseExpression();
     std.debug.print("\n", .{});
-    try ast_print(a, std.io.getStdErr().writer());
-    std.debug.print("\n", .{});
+    std.debug.print("{}\n", .{a});
     std.debug.print("val = {d}\n", .{eval(a).number});
 }
