@@ -219,7 +219,49 @@ pub fn eval(e: *const Expr) LoxValue {
             const left = eval(b.left);
             const right = eval(b.right);
             switch (b.operator.tag) {
-                .plus => return .{ .number = left.number + right.number },
+                .greater => {
+                    return .{ .bool = left.number > right.number };
+                },
+                .greater_equal => {
+                    return .{ .bool = left.number >= right.number };
+                },
+                .less => {
+                    return .{ .bool = left.number < right.number };
+                },
+                .less_equal => {
+                    return .{ .bool = left.number <= right.number };
+                },
+                .equal_equal => {
+                    return .{ .bool = isEqual(left, right) };
+                },
+                .bang_equal => {
+                    return .{ .bool = !isEqual(left, right) };
+                },
+                .plus => {
+                    // I don't think there is an alternative ...
+                    switch (left) {
+                        .number => |l_num| {
+                            switch (right) {
+                                .number => |r_num| {
+                                    return .{ .number = l_num + r_num };
+                                },
+                                else => unreachable,
+                            }
+                        },
+                        .string => |l_str| {
+                            _ = l_str;
+                            switch (right) {
+                                .string => |r_str| {
+                                    _ = r_str;
+                                    // return nothing for now
+                                    return .{ .string = "" };
+                                },
+                                else => unreachable,
+                            }
+                        },
+                        else => unreachable,
+                    }
+                },
                 .minus => return .{ .number = left.number - right.number },
                 .slash => return .{ .number = left.number / right.number },
                 .star => return .{ .number = left.number * right.number },
@@ -236,11 +278,29 @@ pub fn eval(e: *const Expr) LoxValue {
             const right = eval(u.right);
             switch (u.operator.tag) {
                 .minus => return .{ .number = -right.number },
-                .bang => return .{ .bool = !right.bool },
+                .bang => return .{ .bool = !isTruthy(right) },
                 else => unreachable,
             }
         },
     }
+}
+
+fn isTruthy(l: LoxValue) bool {
+    return switch (l) {
+        .nil => false,
+        .bool => |b| b,
+        else => true,
+    };
+}
+
+fn isEqual(a: LoxValue, b: LoxValue) bool {
+    return switch (a) {
+        .nil => switch (b) {
+            .nil => true,
+            else => false,
+        },
+        else => std.meta.eql(a, b),
+    };
 }
 
 test "asdf" {
