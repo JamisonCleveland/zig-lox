@@ -213,11 +213,11 @@ pub const Parser = struct {
     }
 };
 
-pub fn eval(e: *const Expr) LoxValue {
-    switch (e.*) {
+pub fn eval(e: Expr) LoxValue {
+    switch (e) {
         .binary => |b| {
-            const left = eval(b.left);
-            const right = eval(b.right);
+            const left = eval(b.left.*);
+            const right = eval(b.right.*);
             switch (b.operator.tag) {
                 .greater => {
                     return .{ .bool = left.number > right.number };
@@ -269,13 +269,13 @@ pub fn eval(e: *const Expr) LoxValue {
             }
         },
         .grouping => |g| {
-            return eval(g.expression);
+            return eval(g.expression.*);
         },
         .literal => |l| {
             return l;
         },
         .unary => |u| {
-            const right = eval(u.right);
+            const right = eval(u.right.*);
             switch (u.operator.tag) {
                 .minus => return .{ .number = -right.number },
                 .bang => return .{ .bool = !isTruthy(right) },

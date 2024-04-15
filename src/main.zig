@@ -80,6 +80,6 @@ pub fn run(allocator: std.mem.Allocator, src: [:0]const u8) !void {
     var p = ast.Parser{ .tokens = toks.items, .pos = 0, .allocator = aa.allocator() };
     if (p.parseExpression()) |e| {
         std.debug.print("{}\n", .{e});
-        std.debug.print("{}\n", .{ast.eval(e)});
+        std.debug.print("{}\n", .{ast.eval(e.*)});
     } else |_| {}
 }
